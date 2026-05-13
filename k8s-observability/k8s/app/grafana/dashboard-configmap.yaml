@@ -1,0 +1,15 @@
+---
+# This ConfigMap is referenced by grafana.dashboardsConfigMaps in helm-values/prometheus.yaml
+# Apply BEFORE helm install so the dashboard is ready on first boot:
+#   kubectl apply -f k8s/grafana/dashboard-configmap.yaml -n monitoring
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboards
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  app-red-metrics.json: |
+    # <paste contents of k8s/grafana/dashboard.json here>
+    # Or use the kustomize generator below
