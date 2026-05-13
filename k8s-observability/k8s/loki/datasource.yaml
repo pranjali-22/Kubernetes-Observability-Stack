@@ -1,0 +1,26 @@
+---
+# Adds Loki as a datasource in Grafana automatically via the sidecar
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: loki-datasource
+  namespace: monitoring
+  labels:
+    grafana_datasource: "1"
+data:
+  loki-datasource.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Loki
+        type: loki
+        access: proxy
+        url: http://loki:3100
+        version: 1
+        editable: false
+        jsonData:
+          derivedFields:
+            # Link from logs to Tempo traces (if you add tracing later)
+            - datasourceUid: tempo
+              matcherRegex: '"traceId":"(\w+)"'
+              name: TraceID
+              url: '$${__value.raw}'
