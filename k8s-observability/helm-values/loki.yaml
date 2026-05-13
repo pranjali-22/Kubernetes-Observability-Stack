@@ -1,0 +1,95 @@
+# helm-values/loki.yaml
+# Install Loki stack:
+#   helm upgrade --install loki grafana/loki-stack \
+#     -n monitoring -f helm-values/loki.yaml
+
+loki:
+  enabled: true
+  isDefault: false
+
+  # Single-binary mode (fine for dev/staging; use distributed for prod)
+  loki:
+    auth_enabled: false
+    commonConfig:
+      replication_factor: 1
+    storage:
+      type: filesystem
+    schemaConfig:
+      configs:
+        - from: "2024-01-01"
+          store: tsdb
+          object_store: filesystem
+          schema: v13
+          index:
+            prefix: loki_index_
+            period: 24h
+
+  persistence:
+    enabled: true
+    size: 10Gi
+    storageClassName: standard
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+
+promtail:
+  enabled: true
+
+  # Scrape all pod logs and attach Kubernetes metadata
+  config:
+    clients:
+      - url: http://loki:3100/loki/api/v1/push
+
+    snippets:
+      pipelineStages:
+        # Parse JSON logs from our Node.js app
+        - match:
+            selector: '{namespace="observability-demo"}'
+            stages:
+              - json:
+                  expressions:
+                    level: level
+                    message: message
+                    timestamp: timestamp
+                    method: method
+                    path: path
+                    status: status
+                    duration_ms: duration_ms
+              - labels:
+                  level:
+                  method:
+                  status:
+              - timestamp:
+                  source: timestamp
+                  format: RFC3339
+              - output:
+                  source: message
+
+        # Drop health check noise
+        - match:
+            selector: '{namespace="observability-demo"}'
+            stages:
+              - drop:
+                  expression: '.path == "/health" or .path == "/ready" or .path == "/metrics"'
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+grafana:
+  # Don't deploy Grafana again — it's already in the prometheus stack
+  enabled: false
+  # But tell Loki about the existing Grafana instance
+  sidecar:
+    datasources:
+      enabled: true
+      label: grafana_datasource
